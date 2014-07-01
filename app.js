@@ -343,9 +343,13 @@ gc.addListener('message', function(from, message){
 
 });
 
-
+var exiting = false;
 process.on('SIGINT', function () {
-    console.log("Caught interrupt signal");
-
-    quitAll();
+    if(!exiting) {
+        exiting = true;
+        console.log("Caught interrupt signal");
+        quitAll();
+    }else{
+        console.log("ignoring repeated interrupt signal, please wait for timeout")
+    }
 });

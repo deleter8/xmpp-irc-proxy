@@ -78,8 +78,8 @@ function IrcClient(server, channel, username) {
     var init = function() {
         var name = process.env['PROXY_USERNAME'] || 'chat';
         client = new irc.Client(server, username, {
-            userName: 'proxy',
-            realName: ' IRC proxy bot',
+            userName: name+'proxy',
+            realName: name+' IRC proxy bot',
             channels: [channel]
         });
 

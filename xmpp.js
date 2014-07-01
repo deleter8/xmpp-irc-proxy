@@ -7,9 +7,12 @@ var GChat = function(username, password) {
     var client = null;
     var messages = [];
     var reconnectEvent = null;
+    var presencePingEvent = null;
     var initReconnectWait = 5;
     var reconnectWait = initReconnectWait;
     var maxReconnectWait = 15 * 60;
+    var quitting = false;
+
     var creds = {
         "jid": username,
         "password": password //string
@@ -55,6 +58,7 @@ var GChat = function(username, password) {
     };
 
     this.end = function () {
+        quitting = true;
         client.end();
     };
 
@@ -68,6 +72,7 @@ var GChat = function(username, password) {
     };
 
     var reconnect = function(){
+        if(quitting) return;
         if(!!reconnectEvent){
             console.log("not reconnecting because reconnect is already pending");
             return;
@@ -75,19 +80,30 @@ var GChat = function(username, password) {
 
         console.log("xmpp reconnecting...");
         connected = false;
-        invokeHandlers("disconnected");
-        try {
-            client.end();
-        }catch(err){
-            console.log("err " + err + " when trying to client.end");
+        if(client != null) {
+            invokeHandlers("disconnected");
+            try {
+                client.end();
+                client.removeAllListeners();
+            } catch (err) {
+                console.log("err " + err + " when trying to client.end / removealllisteners");
+            }
+            client = null;
+            self.client = null;
         }
-        client.removeAllListeners();
-        client = null;
-        self.client = null;
 
         reconnectEvent = setTimeout(init, reconnectWait * 1000);
         reconnectWait += 5;
         if(reconnectWait > maxReconnectWait) reconnectWait = maxReconnectWait;
+    };
+
+    var presencePing = function(){
+        if(presencePingEvent){
+            clearTimeout(presencePingEvent);
+        }
+        if(connected) client.send(new xmpp.Element('presence'));
+
+        presencePingEvent = setTimeout(presencePing, 5 * 60 * 1000);
     };
 
     var init = function() {
@@ -110,11 +126,16 @@ var GChat = function(username, password) {
             if(messages.length > 0){
                 setTimeout(sendBacklog, 0);
             }
+
+            if(presencePingEvent){
+                clearTimeout(presencePingEvent);
+            }
+            presencePingEvent = setTimeout(presencePing, 5 * 60 * 1000);
+
         });
 
         client.connection.socket.setTimeout(0);
         client.connection.socket.setKeepAlive(true, 10000);
-
 
         client.on('stanza', function (stanza) {
             //util.log('IN: '+stanza.name);
