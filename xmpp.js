@@ -11,11 +11,13 @@ var GChat = function(username, password) {
     var initReconnectWait = 5;
     var reconnectWait = initReconnectWait;
     var maxReconnectWait = 15 * 60;
+    var reconnecting = false;
     var quitting = false;
 
     var creds = {
         "jid": username,
-        "password": password //string
+        "password": password,
+        "reconnect ":true
     };
 
     this.handlers = {"connected":[], "message":[], "disconnected":[]};
@@ -78,13 +80,14 @@ var GChat = function(username, password) {
             return;
         }
 
+        reconnecting = true;
+
         console.log("xmpp reconnecting...");
         connected = false;
         if(client != null) {
             invokeHandlers("disconnected");
             try {
                 client.end();
-                client.removeAllListeners();
             } catch (err) {
                 console.log("err " + err + " when trying to client.end / removealllisteners");
             }
@@ -113,6 +116,7 @@ var GChat = function(username, password) {
         reconnectEvent = null;
 
         client.on('online', function () {
+            reconnecting = false;
             console.log("xmpp connection online");
             client.send(new xmpp.Element('presence'));
             connected = true;
@@ -190,8 +194,12 @@ var GChat = function(username, password) {
         });
 
         client.on('offline', function() {
-            console.log("xmpp went offline ");
-            reconnect();
+            if(!reconnecting) {
+                console.log("xmpp went offline ");
+                reconnect();
+            }else{
+                console.log("xmpp offline detected while reconnecting...")
+            }
         });
     };
 
