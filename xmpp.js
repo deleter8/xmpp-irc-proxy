@@ -53,7 +53,12 @@ var GChat = function(username, password) {
     this.send = function (to, message) {
         var stanza = new xmpp.Element('message', {"to": to, "type": 'chat' }).c('body').t(message);
         if(connected) {
-            client.send(stanza);
+            try {
+                client.send(stanza);
+            }catch(err){
+                console.log("error detected while trying to send message ", err);
+                messages.push(message);
+            }
         }else{
             messages.push(message);
         }
