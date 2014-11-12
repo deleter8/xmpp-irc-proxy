@@ -50,6 +50,11 @@ function connectAccount(user){
         console.log("got an action from " + from + ", that was: " + action);
         gc.send(user.account.xmppAddress[user.account.xmppAddress.length-1], "*" + from + " " + action);
     });
+	
+	user.ircc.addListener('serverMessage', function(what){
+        console.log("server message :: " + what);
+        gc.send(user.account.xmppAddress[user.account.xmppAddress.length-1], "*** " + what + " ***");
+    });
 }
 
 function disconnectAccount(user, fn){
@@ -105,7 +110,7 @@ gc.addListener('disconnected', function(){
 });
 
 function quitAll(){
-    console.log("exiting (waiting 60 seconds for all connections to terminate...");
+    console.log("exiting (waiting 5 seconds for all connections to terminate...");
     gc.end();
     var connectedUsers = users.filter(function(user){
         return user.account.active;
@@ -118,15 +123,15 @@ function quitAll(){
     var quitOnAllGone;
     var times = 0;
     quitOnAllGone = function(){
-        if(total == quit || times >= 10 * 60 ){
+        if(total == quit || times >= 10 * 5 ){
             saveAccounts(function(err){
                 process.exit();
             });
 
         }else{
             times++;
-            if((times % (10 * 10))==0){
-                console.log("waiting " + (60 - (times / 10)) + " more seconds " );
+            if((times % (1 * 10))==0){
+                console.log("waiting " + (5 - (times / 10)) + " more seconds " );
             }
             setTimeout(quitOnAllGone, 100);
         }
@@ -215,7 +220,19 @@ gc.addListener('message', function(from, message){
                 saveAccounts();
 
                 return;
+            
+			case "names":
+                
+				var nickList = authUser.ircc.getNames().reduce(
+					function(p, c){
+						return '' + p + ', ' + c;
+					}
+				,'').substr(1);
+				
+				gc.send(from, "!users : " + nickList + "!");
 
+                return;
+				
             case "me":
                 gc.send(from, "!authed as : " + authUser.account.id + "!");
 
@@ -226,6 +243,13 @@ gc.addListener('message', function(from, message){
                 if(!authUser.account.active){
                     authUser.account.active = true;
                     connectAccount(authUser);
+					saveAccounts(function(err){
+							if(!!err){
+								console.log("error saving accounts file " + err);
+								return;
+							}
+							console.log("saved accounts file");							
+						});
                 }
 
                 return;
@@ -235,6 +259,13 @@ gc.addListener('message', function(from, message){
                 if(authUser.account.active){
                     disconnectAccount(authUser, function(){
                         authUser.account.active = false;
+					    saveAccounts(function(err){
+							if(!!err){
+								console.log("error saving accounts file " + err);
+								return;
+							}
+							console.log("saved accounts file");							
+						});
                     });
                 }
 

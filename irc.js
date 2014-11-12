@@ -1,15 +1,18 @@
 var irc = require('irc');
 
+var globalReconnects = 3;
+
 function IrcClient(server, channel, username) {
 
     var self = this;
     var connected = false;
     var client = null;
     var messages = [];
+	var namesCache = [];
 
-    this.handlers = {"connected":[], "message":[], "pm":[], "action":[]};
-
-    var invokeHandlers = function(topic){
+    this.handlers = {"connected":[], "message":[], "pm":[], "action":[], "serverMessage":[]};
+	
+	var invokeHandlers = function(topic){
         var args = Array.prototype.slice.call(arguments, 1);
         setTimeout(function(){
             for(var i = 0; i < self.handlers[topic].length; i++){
@@ -17,8 +20,8 @@ function IrcClient(server, channel, username) {
             }
         }, 0);
     };
-
-    this.addListener = function(topic, fn){
+	
+	this.addListener = function(topic, fn){
         if(self.handlers.hasOwnProperty(topic)){
             self.handlers[topic].push(fn);
         }else{
@@ -56,6 +59,10 @@ function IrcClient(server, channel, username) {
     this.end = function (fn) {
         client.disconnect('leaving', fn);
     };
+	
+	this.getNames = function(){ 
+		return namesCache; 
+	}
 
     var reconnect = function(){
         connected = false;
@@ -102,12 +109,48 @@ function IrcClient(server, channel, username) {
             } catch (err) {
                 console.log(nick + ' joined ' + channel + ' : ' + message.toString());
             }
-            if (nick == username) {
+			
+			if( namesCache.filter(function(n){return n == nick}).length == 0 ){
+				namesCache.push(nick);
+			}
+            
+			if (nick == username) {
                 connected = true;
                 invokeHandlers('connected');
                 setTimeout(sendBacklog,0);
                 //now enabled for sending/receiving messages
-            }
+            }else{
+				invokeHandlers('serverMessage', nick + " has joined");
+			}
+        });
+
+        client.addListener('quit', function (nick, reason, channels, message) {
+            console.log(nick + 'left because ' + reason + ', message was ' + message);
+			
+			namesCache = namesCache.filter(function(n){return n !== nick});
+			
+			if(nick !== username)
+			{
+				invokeHandlers('serverMessage', nick + " has quit");
+			}
+        });
+		
+		client.addListener('nick', function (oldnick, newnick, channels, message) {
+            console.log(oldnick + ' changed names to ' + newnick);
+			namesCache = namesCache.filter(function(n){return n !== oldnick});
+			namesCache.push(newnick);
+			invokeHandlers('serverMessage', oldnick + ' is now known as ' + newnick);			
+        });
+		
+		client.addListener('names', function (channel, nicks) {
+            console.log("got 'names' from server" + JSON.stringify(nicks));
+			namesCache = Object.keys(nicks);
+			var nickList = namesCache.reduce(
+				function(p, c){
+					return '' + p + ', ' + c;
+				}
+			,'').substr(1);
+			invokeHandlers('serverMessage', "current users: " + nickList);
         });
 
         client.addListener('pm', function (from, message) {
@@ -118,11 +161,13 @@ function IrcClient(server, channel, username) {
         client.addListener('error', function (message) {
             console.log('error: ', message);
             console.log("reconnecting");
-            reconnect();
-        });
-
-        client.addListener('quit', function (nick, reason, channels, message) {
-            console.log(nick + 'left because ' + reason + ', message was ' + message);
+            if(globalReconnects > 0){
+				globalReconnects--;
+				reconnect();
+			}else{
+				console.log("exceeded maximum reconnects");
+				throw new Error("irc max reconnects threshold reached");
+			}
         });
 
         client.addListener('raw', function (message) {

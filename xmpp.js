@@ -195,7 +195,9 @@ var GChat = function(username, password) {
             console.log("error in xmpp: ",e);
             if (e.code == 'ECONNRESET') {
                 reconnect();
-            }
+            }else{
+				throw new Error("failure in xmpp code");
+			}
         });
 
         client.on('offline', function() {
