@@ -137,8 +137,7 @@ function IrcClient(server, channel, username) {
 		
 		client.addListener('nick', function (oldnick, newnick, channels, message) {
             console.log(oldnick + ' changed names to ' + newnick);
-			namesCache = namesCache.filter(function(n){return n !== oldnick});
-			namesCache.push(newnick);
+			namesCache = namesCache.map(function(n){return n === oldnick ? newnick : n});
 			invokeHandlers('serverMessage', oldnick + ' is now known as ' + newnick);			
         });
 		
