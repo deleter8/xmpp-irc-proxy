@@ -39,6 +39,12 @@ function IrcClient(server, channel, username) {
             throw new Error("no such topic: " + topic);
         }
     };
+	
+	this.changeNick = function(newNick){
+		if(connected){
+			client.send('NICK', newNick);
+		}//not going to handle the else case yet
+	};
 
     this.send = function (message) {
         if(connected) {

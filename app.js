@@ -43,7 +43,11 @@ function connectAccount(user){
 
     user.ircc.addListener('message', function(from, message){
         console.log("got a message from " + from + ", that was: " + message);
-        gc.send(user.account.xmppAddress[user.account.xmppAddress.length-1], from + ": " + message);
+		if(!user.account.hasOwnProperty('nobold') || !user.account['nobold']){
+			from = "*" + from + "*";
+		}
+		gc.send(user.account.xmppAddress[user.account.xmppAddress.length-1], from + ": " + message);
+			
     });
 
     user.ircc.addListener('action', function(from, action){
@@ -163,7 +167,7 @@ gc.addListener('message', function(from, message){
     {
         if(args.length < 2){
             console.log("not enough params to auth");
-            gc.send(from, "not enough params to auth");
+            gc.send(from, "!not enough params to auth!");
             return;
         }
 
@@ -207,12 +211,76 @@ gc.addListener('message', function(from, message){
                     console.log("unauthorized attempt to kill all by " + authUser.account.id);
                     gc.send(from, "!this account is not authorized for that action!");
                     return;
-                }
+                }				
 
                 quitAll();
-
+				
                 return;
+			
+			case "servermsg":
+			
+				if(!authUser.account.permissions.admin){
+                    console.log("unauthorized attempt to kill all by " + authUser.account.id);
+                    gc.send(from, "!this account is not authorized for that action!");
+                    return;
+                }
+				
+				if(args.length < 1){
+					console.log("message for server message missing");
+					gc.send(from, "!message for server message missing!");
+					return;
+				}
 
+			
+				var connectedUsers = users.filter(function(user){
+					return user.account.active;
+				});
+				
+				var total = connectedUsers.length;
+				var quit = 0;
+				
+				var serverMsg = "!server msg: " + args.join(' ') + "!";
+
+				connectedUsers.map(function(user){
+					gc.send(user.account.xmppAddress[user.account.xmppAddress.length-1], serverMsg);
+				});
+			
+				return;
+				
+			case "nobold":
+				authUser.account['nobold'] = !authUser.account.hasOwnProperty('nobold') || !authUser.account['nobold'];
+				gc.send(from, "!nobald switched to " + authUser.account['nobold'] + "!");
+				
+				saveAccounts();
+				
+				return;
+				
+			case "suffix":
+			
+				if(args.length < 1){
+					console.log("suffix required");
+					gc.send(from, "!error: suffix required!");
+					return;
+				}
+				
+				var suffix = args[0].replace(/[^A-Za-z_|0-9]*/g, '');
+				
+				if(suffix.length < 1){
+					console.log("suffix contained no legal characters");
+					gc.send(from, "!error: suffix contained no legal characters (A-Za-z0-9_|)!");
+					return;
+				}
+				
+				authUser.account.nick = authUser.account.id + "|" + suffix;
+				
+				saveAccounts();
+				
+				authUser.ircc.changeNick( authUser.account.nick  );
+				
+				gc.send(from, "!nick changed to " + authUser.account.nick + "!");
+				
+				return;
+				
             case "deauth":
                 authUser.account.xmppAddress = authUser.account.xmppAddress.filter(function(xmpp){return xmpp != from;});
                 gc.send(from, "!deauth success!");
