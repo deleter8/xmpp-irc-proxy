@@ -166,19 +166,33 @@ gc.addListener('message', function(from, message){
     if(command == "auth")
     {
         if(args.length < 2){
-            console.log("not enough params to auth");
+            console.log("not enough params to auth: message = '", message, "'");
             gc.send(from, "!not enough params to auth!");
             return;
         }
 
         var foundUsers = users.filter(function(user){return user.account.id == args[0];});
+		
+		if(foundUsers.length < 1){
+			console.log("unknown user " + args[0] + " tried to auth");
+			gc.send(from, "!id '" + args[0] + "' is unknown, please contact an admin!");
+			return;
+		}
 
+		if(!foundUsers[0].account.connectingSecret){
+			console.log("user " + foundUsers[0].account.id + " tried to re-auth but had no secret");
+			gc.send(from, "!your secret has expired, please contact an admin to recieve a new one!");
+			return;
+		}
+		
         if(foundUsers[0].account.connectingSecret == args[1]){
 
             //if already in list remove and add to end
             foundUsers[0].account.xmppAddress = foundUsers[0].account.xmppAddress.filter(function(xmpp){return xmpp != from;});
 
             foundUsers[0].account.xmppAddress.push(from);
+			foundUsers[0].account.connectingSecret = undefined;
+			
             console.log("auth success : " + foundUsers[0].account.id + " = " + from);
             gc.send(from, "!auth success!");
 
@@ -275,7 +289,9 @@ gc.addListener('message', function(from, message){
 				
 				saveAccounts();
 				
-				authUser.ircc.changeNick( authUser.account.nick  );
+				if(!!authUser.ircc){
+					authUser.ircc.changeNick( authUser.account.nick  );
+				}
 				
 				gc.send(from, "!nick changed to " + authUser.account.nick + "!");
 				
@@ -291,6 +307,11 @@ gc.addListener('message', function(from, message){
             
 			case "names":
                 
+				if(!authUser.ircc){
+					gc.send(from, "!you must first sign in (on) to use this command!");
+					return;
+				}
+				
 				var nickList = authUser.ircc.getNames().reduce(
 					function(p, c){
 						return '' + p + ', ' + c;
@@ -358,7 +379,38 @@ gc.addListener('message', function(from, message){
                 });
 
                 return;
+			
+			case "reauthuser":
 
+				if(!authUser.account.permissions.admin){
+                    console.log("unauthorized attempt to re-auth user by " + authUser.account.id);
+                    gc.send(from, "!this account is not authorized for that action!");
+                    return;
+                }
+				
+				if(args.length < 2){
+                    console.log("not enough params to re-auth user");
+                    gc.send(from, "!not enough params to add user (user, secret)!");
+                    return;
+                }
+			
+				var foundUsers = users.filter(function(user){return user.account.id == args[0];});
+		
+				if(foundUsers.length < 1){
+					console.log("cannot reauth unknown user " + args[0]);
+					gc.send(from, "!cannot reauth unknown user " + args[0] + "!");
+					return;
+				}
+
+				foundUsers[0].account.connectingSecret = args[1];
+					
+				console.log("re-auth success : " + foundUsers[0].account.id + " = " + from);
+				gc.send(from, "!re-auth success!");
+
+				saveAccounts();
+			
+				return;
+			
             case "adduser":
 
                 if(!authUser.account.permissions.admin){
