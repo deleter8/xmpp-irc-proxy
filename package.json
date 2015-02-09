@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "node-xmpp": "~1.0.0-alpha2",
-    "irc": "~0.3.7"
+    "irc": "~0.3.7",
+    "node-xmpp-client": "0.4.0"
   }
 }

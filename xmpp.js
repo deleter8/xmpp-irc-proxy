@@ -1,5 +1,6 @@
-var xmpp = require('node-xmpp');
+var xmpp = require('node-xmpp-client');
 var util = require('util');
+var Element = require('node-xmpp-client/node_modules/ltx').Element;
 
 var GChat = function(username, password) {
     var self = this;
@@ -51,7 +52,7 @@ var GChat = function(username, password) {
     };
 
     this.send = function (to, message) {
-        var stanza = new xmpp.Element('message', {"to": to, "type": 'chat' }).c('body').t(message);
+        var stanza = new Element('message', {"to": to, "type": 'chat' }).c('body').t(message);
         if(connected) {
             try {
                 client.send(stanza);
@@ -109,7 +110,7 @@ var GChat = function(username, password) {
         if(presencePingEvent){
             clearTimeout(presencePingEvent);
         }
-        if(connected) client.send(new xmpp.Element('presence'));
+        if(connected) client.send(new Element('presence'));
 
         presencePingEvent = setTimeout(presencePing, 5 * 60 * 1000);
     };
@@ -123,7 +124,7 @@ var GChat = function(username, password) {
         client.on('online', function () {
             reconnecting = false;
             console.log("xmpp connection online");
-            client.send(new xmpp.Element('presence'));
+            client.send(new Element('presence'));
             connected = true;
             reconnectWait = initReconnectWait;
             invokeHandlers('connected');
