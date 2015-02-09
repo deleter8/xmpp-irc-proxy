@@ -4,6 +4,11 @@ var IrcClient = require("./irc.js");
 
 var accountFile = __dirname + '/accounts.json';
 
+if(!process.env['XMPP_USERNAME'] || !process.env['XMPP_PASSWORD']){
+    console.log("Required xmpp pw/un not found, exiting...");
+    return process.exit(1);
+}
+
 var gc = new GoogleClient(process.env['XMPP_USERNAME'], process.env['XMPP_PASSWORD']);
 var gcConnected = false;
 
